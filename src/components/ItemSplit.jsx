@@ -1,4 +1,4 @@
-import { HOST_ID } from "./split.js";
+import { HOST_ID } from "../lib/split.js";
 
 const HOST_RULE = { mode: "one", personId: HOST_ID };
 

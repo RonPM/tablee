@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
-import { MENU } from "./menu.js";
-import { HOST_ID, computeTotals, formatEuros, removePerson, resizeRule, uniqueName } from "./split.js";
-import Header from "./Header.jsx";
-import Menu from "./Menu.jsx";
-import Basket from "./Basket.jsx";
-import GuestsModal from "./GuestsModal.jsx";
-import CheckoutModal from "./CheckoutModal.jsx";
-import History from "./History.jsx";
+import { MENU } from "./data/menu.js";
+import { HOST_ID, computeTotals, formatEuros, removePerson, resizeRule, uniqueName } from "./lib/split.js";
+import Header from "./components/Header.jsx";
+import Menu from "./components/Menu.jsx";
+import Basket from "./components/Basket.jsx";
+import GuestsModal from "./components/GuestsModal.jsx";
+import CheckoutModal from "./components/CheckoutModal.jsx";
+import History from "./components/History.jsx";
 
 const HOST = { id: HOST_ID, name: "Moi" };
 const MAX_GUESTS = 20;

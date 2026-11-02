@@ -24,10 +24,24 @@ Quand on commande à plusieurs, une seule personne paie, puis tout le monde refa
 
 ## Choix techniques
 
-- **Calculs en centimes entiers** (`split.js`) pour éviter les erreurs d'arrondi des nombres à virgule.
+- **Calculs en centimes entiers** (`src/lib/split.js`) pour éviter les erreurs d'arrondi des nombres à virgule.
 - **Répartition par la méthode du plus fort reste** : la somme des parts est toujours exactement égale au total, et pour chaque convive, sous-total + TVA = total affiché.
 - **Tests unitaires** (Vitest) sur toute la logique de calcul.
 - React 19 + Vite, sans dépendance supplémentaire.
+
+## Structure du projet
+
+```
+src/
+  main.jsx            point d'entrée
+  App.jsx             état de la commande (panier, convives, répartition)
+  styles.css          styles et responsive
+  components/         écrans et composants d'interface
+  lib/split.js        calcul des parts (+ split.test.js)
+  lib/history.js      historique des commandes
+  data/menu.js        carte du restaurant
+public/               icône
+```
 
 ## Lancer le projet
 

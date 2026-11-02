@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { CATEGORIES, MENU } from "./menu.js";
-import { formatEuros, toCents } from "./split.js";
+import { CATEGORIES, MENU } from "../data/menu.js";
+import { formatEuros, toCents } from "../lib/split.js";
 
 export default function Menu({ cart, onAdd }) {
   const [category, setCategory] = useState("all");
