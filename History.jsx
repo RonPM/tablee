@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { loadOrders } from "../lib/history.js";
-import { formatEuros } from "../lib/split.js";
+import { loadOrders } from "./history.js";
+import { formatEuros } from "./split.js";
 
 export default function History({ onBack }) {
   const [orders] = useState(loadOrders);

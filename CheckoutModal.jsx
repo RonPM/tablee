@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Modal from "./Modal.jsx";
-import { computeSplit, formatEuros } from "../lib/split.js";
-import { newOrderId, saveOrder } from "../lib/history.js";
+import { computeSplit, formatEuros } from "./split.js";
+import { newOrderId, saveOrder } from "./history.js";
 
 // Étapes : récapitulatif → paiement simulé → confirmation.
 export default function CheckoutModal({ cart, people, assignments, onClose, onDone }) {

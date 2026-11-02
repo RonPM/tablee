@@ -1,4 +1,4 @@
-import { HOST_ID } from "../lib/split.js";
+import { HOST_ID } from "./split.js";
 
 // Choix de « qui paie ce plat » : une personne, partage à parts égales,
 // ou répartition par unité quand le plat a été commandé plusieurs fois.

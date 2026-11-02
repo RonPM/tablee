@@ -1,4 +1,4 @@
-import { computeSplit, formatEuros, toCents } from "../lib/split.js";
+import { computeSplit, formatEuros, toCents } from "./split.js";
 import ItemSplit from "./ItemSplit.jsx";
 
 export default function Basket({
