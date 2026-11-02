@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { MENU } from "./menu.js";
-import { HOST_ID, computeTotals, formatEuros, uniqueName } from "./split.js";
+import { HOST_ID, computeTotals, formatEuros, removePerson, resizeRule, uniqueName } from "./split.js";
 import Header from "./Header.jsx";
 import Menu from "./Menu.jsx";
 import Basket from "./Basket.jsx";
@@ -24,27 +24,30 @@ export default function App() {
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
 
   function addItem(id) {
-    setCart((current) => {
-      const existing = current.find((item) => item.id === id);
-      if (existing) {
-        return current.map((item) => (item.id === id ? { ...item, quantity: item.quantity + 1 } : item));
-      }
-      return [...current, { ...MENU.find((dish) => dish.id === id), quantity: 1 }];
-    });
+    if (cart.some((item) => item.id === id)) {
+      changeQuantity(id, 1);
+    } else {
+      setCart((current) => [...current, { ...MENU.find((dish) => dish.id === id), quantity: 1 }]);
+    }
   }
 
   function changeQuantity(id, delta) {
+    const item = cart.find((i) => i.id === id);
+    if (!item) return;
+    const quantity = item.quantity + delta;
     setCart((current) =>
       current
-        .map((item) => (item.id === id ? { ...item, quantity: item.quantity + delta } : item))
-        .filter((item) => item.quantity > 0),
+        .map((i) => (i.id === id ? { ...i, quantity } : i))
+        .filter((i) => i.quantity > 0),
     );
-    if (delta < 0) {
-      // Une répartition par unité peut dépasser la nouvelle quantité : on la réinitialise.
-      setAssignments((current) =>
-        current[id]?.mode === "units" ? { ...current, [id]: { mode: "one", personId: HOST_ID } } : current,
-      );
-    }
+    // Une répartition par unité suit la nouvelle quantité.
+    setAssignments((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      if (quantity <= 0) delete next[id];
+      else next[id] = resizeRule(current[id], quantity);
+      return next;
+    });
   }
 
   function addGuest(name) {
@@ -55,23 +58,9 @@ export default function App() {
 
   function removeGuest(id) {
     setGuests((current) => current.filter((g) => g.id !== id));
-    setAssignments((current) => {
-      const next = {};
-      for (const [itemId, a] of Object.entries(current)) {
-        if (a.mode === "one" && a.personId === id) continue;
-        if (a.mode === "shared") {
-          const peopleIds = a.peopleIds.filter((pid) => pid !== id);
-          next[itemId] = peopleIds.length ? { ...a, peopleIds } : { mode: "one", personId: HOST_ID };
-        } else if (a.mode === "units") {
-          const units = { ...a.units };
-          delete units[id];
-          next[itemId] = { ...a, units };
-        } else {
-          next[itemId] = a;
-        }
-      }
-      return next;
-    });
+    setAssignments((current) =>
+      Object.fromEntries(Object.entries(current).map(([itemId, rule]) => [itemId, removePerson(rule, id)])),
+    );
   }
 
   function resetOrder() {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocate, computeSplit, computeTotals, uniqueName, HOST_ID } from "./split.js";
+import { allocate, computeSplit, computeTotals, removePerson, resizeRule, uniqueName, HOST_ID } from "./split.js";
 
 const people = [
   { id: HOST_ID, name: "Moi" },
@@ -44,12 +44,31 @@ describe("computeSplit", () => {
     }
   });
 
-  it("attribue à l'hôte les plats non assignés et les unités restantes", () => {
+  it("attribue à l'hôte les unités sans règle", () => {
     const cart = [fries];
-    const assignments = { fries: { mode: "units", units: { a: 1 } } };
+    const assignments = { fries: { mode: "perUnit", units: [{ mode: "one", personId: "a" }] } };
     const rows = computeSplit(cart, assignments, people).rows;
     expect(rows.find((r) => r.personId === "a").subtotal).toBe(450);
     expect(rows.find((r) => r.personId === HOST_ID).subtotal).toBe(900);
+  });
+
+  it("gère une unité partagée et une unité entière pour la même personne", () => {
+    const kombucha = { id: "k", name: "Kombucha", price: 4.9, quantity: 2 };
+    const assignments = {
+      k: {
+        mode: "perUnit",
+        units: [
+          { mode: "shared", peopleIds: [HOST_ID, "a", "b"] },
+          { mode: "one", personId: HOST_ID },
+        ],
+      },
+    };
+    const split = computeSplit([kombucha], assignments, people);
+    const host = split.rows.find((r) => r.personId === HOST_ID);
+    // 4,90 € / 3 = 1,64 € (centime en plus) + 4,90 € entier
+    expect(host.subtotal).toBe(164 + 490);
+    expect(host.lines.map((l) => l.label)).toEqual(["1/3", "×1"]);
+    expect(split.rows.reduce((s, r) => s + r.total, 0)).toBe(split.total);
   });
 
   it("renvoie à l'hôte la part d'un convive supprimé", () => {
@@ -57,6 +76,22 @@ describe("computeSplit", () => {
     const assignments = { salmon: { mode: "one", personId: "ghost" } };
     const rows = computeSplit(cart, assignments, people).rows;
     expect(rows.find((r) => r.personId === HOST_ID).subtotal).toBe(1850);
+  });
+});
+
+describe("removePerson et resizeRule", () => {
+  it("rend à l'hôte les parts d'un convive retiré, y compris par unité", () => {
+    const rule = { mode: "perUnit", units: [{ mode: "one", personId: "a" }, { mode: "shared", peopleIds: ["a"] }] };
+    expect(removePerson(rule, "a").units).toEqual([
+      { mode: "one", personId: HOST_ID },
+      { mode: "one", personId: HOST_ID },
+    ]);
+  });
+
+  it("ajuste le nombre d'unités à la quantité", () => {
+    const rule = { mode: "perUnit", units: [{ mode: "one", personId: "a" }, { mode: "one", personId: "b" }] };
+    expect(resizeRule(rule, 3).units).toHaveLength(3);
+    expect(resizeRule(rule, 1)).toEqual({ mode: "one", personId: "a" });
   });
 });
 

@@ -15,7 +15,7 @@ Quand on commande à plusieurs, une seule personne paie, puis tout le monde refa
 - **Trois façons de répartir un plat** :
   - une personne ;
   - à partager à parts égales entre certains convives ;
-  - par unité, quand un plat a été commandé plusieurs fois.
+  - unité par unité, quand un plat a été commandé plusieurs fois : chaque unité a sa propre règle (par exemple un kombucha partagé à trois et un autre pour une seule personne).
 - **Part de chacun en direct**, mise à jour à chaque modification.
 - **Récapitulatif détaillé** par convive (plats, part du plat, TVA), copiable pour l'envoyer dans le groupe.
 - **Paiement simulé** : aucune donnée bancaire n'est demandée ni transmise.

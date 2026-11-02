@@ -26,38 +26,74 @@ export function allocate(total, weights) {
   return parts;
 }
 
+// Répartit un montant selon une règle simple : une personne, ou partage à parts égales.
+// Retourne une liste de { personId, cents, share } où share vaut 1 (entier) ou 1/n.
+function splitAmount(cents, rule) {
+  if (rule?.mode === "shared" && rule.peopleIds?.length > 0) {
+    const n = rule.peopleIds.length;
+    const parts = allocate(cents, rule.peopleIds.map(() => 1));
+    return rule.peopleIds.map((personId, i) => ({ personId, cents: parts[i], n }));
+  }
+  return [{ personId: rule?.personId ?? HOST_ID, cents, n: 1 }];
+}
+
 // Indique qui paie quoi pour une ligne du panier.
-// Retourne une liste de { personId, cents, label }.
+// Trois règles possibles :
+//  - { mode: "one", personId }       : toute la ligne pour une personne ;
+//  - { mode: "shared", peopleIds }   : toute la ligne partagée à parts égales ;
+//  - { mode: "perUnit", units: [] }  : une règle (one ou shared) par unité,
+//    par exemple un kombucha partagé à 3 et un autre pour une seule personne.
+// Retourne une liste de { personId, cents, label }, avec une ligne par personne
+// et par type de part (unités entières, 1/3, 1/2…).
 export function shareLine(item, assignment) {
-  const lineCents = toCents(item.price) * item.quantity;
+  const unitCents = toCents(item.price);
   const a = assignment ?? { mode: "one", personId: HOST_ID };
 
-  if (a.mode === "shared" && a.peopleIds?.length > 0) {
-    const parts = allocate(lineCents, a.peopleIds.map(() => 1));
-    return a.peopleIds.map((personId, i) => ({
+  if (a.mode !== "perUnit") {
+    return splitAmount(unitCents * item.quantity, a).map(({ personId, cents, n }) => ({
       personId,
-      cents: parts[i],
-      label: `1/${a.peopleIds.length}`,
+      cents,
+      label: n > 1 ? `1/${n}` : item.quantity > 1 ? `×${item.quantity}` : "",
     }));
   }
 
-  if (a.mode === "units") {
-    const shares = [];
-    let assigned = 0;
-    for (const [personId, units] of Object.entries(a.units ?? {})) {
-      const n = Math.min(units, item.quantity - assigned);
-      if (n <= 0) continue;
-      assigned += n;
-      shares.push({ personId, cents: toCents(item.price) * n, label: `×${n}` });
+  const merged = new Map();
+  for (let i = 0; i < item.quantity; i++) {
+    for (const { personId, cents, n } of splitAmount(unitCents, a.units?.[i])) {
+      const key = `${personId}|${n}`;
+      const entry = merged.get(key) ?? { personId, cents: 0, n, count: 0 };
+      entry.cents += cents;
+      entry.count += 1;
+      merged.set(key, entry);
     }
-    const left = item.quantity - assigned;
-    if (left > 0) {
-      shares.push({ personId: HOST_ID, cents: toCents(item.price) * left, label: `×${left}` });
-    }
-    return shares;
   }
+  return [...merged.values()].map(({ personId, cents, n, count }) => ({
+    personId,
+    cents,
+    label: n > 1 ? (count > 1 ? `${count} × 1/${n}` : `1/${n}`) : count > 1 || item.quantity > 1 ? `×${count}` : "",
+  }));
+}
 
-  return [{ personId: a.personId ?? HOST_ID, cents: lineCents, label: "" }];
+// Retire un convive d'une règle de répartition ; ses parts reviennent à l'hôte.
+export function removePerson(rule, personId) {
+  if (!rule) return rule;
+  if (rule.mode === "perUnit") {
+    return { ...rule, units: rule.units.map((u) => removePerson(u, personId)) };
+  }
+  if (rule.mode === "shared") {
+    const peopleIds = rule.peopleIds.filter((id) => id !== personId);
+    return peopleIds.length ? { ...rule, peopleIds } : { mode: "one", personId: HOST_ID };
+  }
+  return rule.personId === personId ? { mode: "one", personId: HOST_ID } : rule;
+}
+
+// Adapte une règle « par unité » quand la quantité change.
+export function resizeRule(rule, quantity) {
+  if (rule?.mode !== "perUnit") return rule;
+  if (quantity <= 1) return rule.units[0] ?? { mode: "one", personId: HOST_ID };
+  const units = rule.units.slice(0, quantity);
+  while (units.length < quantity) units.push({ mode: "one", personId: HOST_ID });
+  return { ...rule, units };
 }
 
 export function computeTotals(cart) {

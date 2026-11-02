@@ -1,94 +1,129 @@
 import { HOST_ID } from "./split.js";
 
-// Choix de « qui paie ce plat » : une personne, partage à parts égales,
-// ou répartition par unité quand le plat a été commandé plusieurs fois.
+const HOST_RULE = { mode: "one", personId: HOST_ID };
+
+// Choix de « qui paie ce plat ».
+// - Une personne / À partager : la règle s'applique à toutes les unités du plat.
+// - Unité par unité (si le plat est commandé plusieurs fois) : chaque unité a sa
+//   propre règle, par exemple un kombucha partagé à 3 et un autre pour une personne.
 export default function ItemSplit({ item, people, assignment, onChange }) {
-  const a = assignment ?? { mode: "one", personId: HOST_ID };
-  const modes = [
-    { id: "one", label: "Une personne" },
-    { id: "shared", label: "À partager" },
-    ...(item.quantity > 1 ? [{ id: "units", label: "Par unité" }] : []),
-  ];
+  const rule = assignment ?? HOST_RULE;
+  const perUnit = rule.mode === "perUnit";
 
-  function setMode(mode) {
-    if (mode === a.mode) return;
-    if (mode === "one") onChange({ mode, personId: HOST_ID });
-    if (mode === "shared") onChange({ mode, peopleIds: people.map((p) => p.id) });
-    if (mode === "units") onChange({ mode, units: {} });
+  function setWholeMode(mode) {
+    if (mode === "perUnit") {
+      if (perUnit) return;
+      // On part de la règle actuelle, recopiée sur chaque unité.
+      onChange({ mode: "perUnit", units: Array.from({ length: item.quantity }, () => rule) });
+      return;
+    }
+    if (perUnit || mode !== rule.mode) {
+      onChange(mode === "shared" ? { mode, peopleIds: people.map((p) => p.id) } : HOST_RULE);
+    }
   }
 
-  function toggleShared(id) {
-    const ids = a.peopleIds.includes(id) ? a.peopleIds.filter((p) => p !== id) : [...a.peopleIds, id];
-    if (ids.length > 0) onChange({ ...a, peopleIds: ids });
+  function setUnit(index, unitRule) {
+    const units = rule.units.map((u, i) => (i === index ? unitRule : u));
+    onChange({ ...rule, units });
   }
-
-  function setUnits(id, delta) {
-    const units = { ...a.units };
-    const used = Object.values(units).reduce((s, n) => s + n, 0);
-    const next = (units[id] ?? 0) + delta;
-    if (next < 0 || (delta > 0 && used >= item.quantity)) return;
-    units[id] = next;
-    onChange({ ...a, units });
-  }
-
-  const usedUnits = a.mode === "units" ? Object.values(a.units).reduce((s, n) => s + n, 0) : 0;
 
   return (
     <div className="split">
-      <div className="segmented" role="radiogroup" aria-label={`Répartition de ${item.name}`}>
-        {modes.map((m) => (
-          <button
-            key={m.id}
-            role="radio"
-            aria-checked={a.mode === m.id}
-            className={a.mode === m.id ? "is-active" : ""}
-            onClick={() => setMode(m.id)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label={`Répartition de ${item.name}`}
+        value={perUnit ? "perUnit" : rule.mode}
+        options={[
+          { id: "one", label: "Une personne" },
+          { id: "shared", label: "À partager" },
+          ...(item.quantity > 1 ? [{ id: "perUnit", label: "Unité par unité" }] : []),
+        ]}
+        onChange={setWholeMode}
+      />
 
-      <div className="chips">
-        {a.mode === "one" &&
-          people.map((p) => (
-            <button
-              key={p.id}
-              aria-pressed={a.personId === p.id}
-              className={`chip ${a.personId === p.id ? "is-on" : ""}`}
-              onClick={() => onChange({ mode: "one", personId: p.id })}
-            >
-              {p.name}
-            </button>
+      {perUnit ? (
+        <ol className="units">
+          {rule.units.map((unitRule, i) => (
+            <li key={i} className="unit">
+              <div className="unit-head">
+                <span className="unit-name">{item.emoji} n°{i + 1}</span>
+                <Segmented
+                  small
+                  label={`Répartition de ${item.name} n°${i + 1}`}
+                  value={unitRule.mode}
+                  options={[
+                    { id: "one", label: "Une personne" },
+                    { id: "shared", label: "À partager" },
+                  ]}
+                  onChange={(mode) =>
+                    mode !== unitRule.mode &&
+                    setUnit(i, mode === "shared" ? { mode, peopleIds: people.map((p) => p.id) } : HOST_RULE)
+                  }
+                />
+              </div>
+              <PeoplePicker people={people} rule={unitRule} onChange={(r) => setUnit(i, r)} />
+            </li>
           ))}
-
-        {a.mode === "shared" &&
-          people.map((p) => (
-            <button
-              key={p.id}
-              aria-pressed={a.peopleIds.includes(p.id)}
-              className={`chip ${a.peopleIds.includes(p.id) ? "is-on" : ""}`}
-              onClick={() => toggleShared(p.id)}
-            >
-              {a.peopleIds.includes(p.id) ? "✓ " : ""}
-              {p.name}
-            </button>
-          ))}
-
-        {a.mode === "units" &&
-          people.map((p) => (
-            <span key={p.id} className="chip chip-units">
-              {p.name}
-              <button onClick={() => setUnits(p.id, -1)} aria-label={`Une unité de moins pour ${p.name}`}>−</button>
-              <b>{a.units[p.id] ?? 0}</b>
-              <button onClick={() => setUnits(p.id, 1)} aria-label={`Une unité de plus pour ${p.name}`}>+</button>
-            </span>
-          ))}
-      </div>
-
-      {a.mode === "units" && usedUnits < item.quantity && (
-        <p className="split-note">{item.quantity - usedUnits} unité(s) non attribuée(s) : elles reviennent à l'hôte.</p>
+        </ol>
+      ) : (
+        <PeoplePicker people={people} rule={rule} onChange={onChange} />
       )}
+    </div>
+  );
+}
+
+function Segmented({ label, value, options, onChange, small = false }) {
+  return (
+    <div className={`segmented ${small ? "is-small" : ""}`} role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.id}
+          role="radio"
+          aria-checked={value === o.id}
+          className={value === o.id ? "is-active" : ""}
+          onClick={() => onChange(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Choix des personnes : une seule (boutons radio) ou plusieurs (cases à cocher).
+function PeoplePicker({ people, rule, onChange }) {
+  if (rule.mode === "shared") {
+    const toggle = (id) => {
+      const ids = rule.peopleIds.includes(id) ? rule.peopleIds.filter((p) => p !== id) : [...rule.peopleIds, id];
+      if (ids.length > 0) onChange({ ...rule, peopleIds: ids });
+    };
+    return (
+      <div className="chips">
+        {people.map((p) => {
+          const on = rule.peopleIds.includes(p.id);
+          return (
+            <button key={p.id} aria-pressed={on} className={`chip ${on ? "is-on" : ""}`} onClick={() => toggle(p.id)}>
+              {on ? "✓ " : ""}
+              {p.name}
+            </button>
+          );
+        })}
+        <span className="split-note">{rule.peopleIds.length > 1 ? `Partagé à ${rule.peopleIds.length}` : "Une seule personne cochée"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="chips">
+      {people.map((p) => (
+        <button
+          key={p.id}
+          aria-pressed={rule.personId === p.id}
+          className={`chip ${rule.personId === p.id ? "is-on" : ""}`}
+          onClick={() => onChange({ mode: "one", personId: p.id })}
+        >
+          {p.name}
+        </button>
+      ))}
     </div>
   );
 }
